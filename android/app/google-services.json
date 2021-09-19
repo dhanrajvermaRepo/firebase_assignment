@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "441038796460",
+    "project_id": "share-your-knowledge-dbdaa",
+    "storage_bucket": "share-your-knowledge-dbdaa.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:441038796460:android:e7be19d8b66646e0ce9109",
+        "android_client_info": {
+          "package_name": "com.example.firebaseAssignment"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "441038796460-o7snv7km9fofkk82c958pa6qmjuj4gqd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.firebaseAssignment",
+            "certificate_hash": "5b1a0a0d0942930968551afd134850a95df5f02e"
+          }
+        },
+        {
+          "client_id": "441038796460-863oecn347j3svhp23auv4tbq5jccrsc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAUCSHhKF2UJKgzwi4hsHtAXxEmOe5q_U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "441038796460-863oecn347j3svhp23auv4tbq5jccrsc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
