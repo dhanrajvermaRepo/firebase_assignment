@@ -29,6 +29,11 @@ dependencies:
   http: ^0.13.3
   image_picker: ^0.8.4+1
   video_player: ^2.2.3
+  flick_video_player: ^0.3.1
+  visibility_detector: ^0.2.0
+  percent_indicator: ^3.0.1
+  fluttertoast: ^8.0.8
+  cached_network_image: ^3.1.0
   flutter:
     sdk: flutter
 

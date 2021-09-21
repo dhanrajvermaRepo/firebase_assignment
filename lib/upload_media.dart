@@ -1,6 +1,14 @@
+import 'package:firebase_assignment/auth_service.dart';
+import 'package:firebase_assignment/content_type.dart';
+import 'package:firebase_assignment/modals/content.dart';
+import 'package:firebase_assignment/repository/fire_base_storage_service.dart';
+import 'package:firebase_assignment/repository/firestore_services.dart';
+import 'package:firebase_assignment/widgets/my_video_player.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'dart:io';
@@ -14,6 +22,11 @@ class UploadMedia extends StatefulWidget {
 }
 class _UploadMediaState extends State<UploadMedia> {
   List<XFile>? _imageFileList;
+  bool _uploadDone=false;
+  UploadTask? _task;
+  final FireStoreService _fireStoreService=FireStoreService();
+  final FirebaseStorageService _firebaseStorageService=FirebaseStorageService();
+  XFile? videoFile;
 
   set _imageFile(XFile? value) {
     _imageFileList = value == null ? null : [value];
@@ -21,9 +34,6 @@ class _UploadMediaState extends State<UploadMedia> {
 
   dynamic _pickImageError;
   bool isVideo = false;
-
-  VideoPlayerController? _controller;
-  VideoPlayerController? _toBeDisposed;
   String? _retrieveDataError;
 
   final ImagePicker _picker = ImagePicker();
@@ -31,39 +41,15 @@ class _UploadMediaState extends State<UploadMedia> {
   final TextEditingController maxHeightController = TextEditingController();
   final TextEditingController qualityController = TextEditingController();
 
-  Future<void> _playVideo(XFile? file) async {
-    if (file != null && mounted) {
-      await _disposeVideoController();
-      late VideoPlayerController controller;
-      if (kIsWeb) {
-        controller = VideoPlayerController.network(file.path);
-      } else {
-        controller = VideoPlayerController.file(File(file.path));
-      }
-      _controller = controller;
-      // In web, most browsers won't honor a programmatic call to .play
-      // if the video has a sound track (and is not muted).
-      // Mute the video so it auto-plays in web!
-      // This is not needed if the call to .play is the result of user
-      // interaction (clicking on a "play" button, for example).
-      final double volume = kIsWeb ? 0.0 : 1.0;
-      await controller.setVolume(volume);
-      await controller.initialize();
-      await controller.setLooping(true);
-      await controller.play();
-      setState(() {});
-    }
-  }
-
   void _onImageButtonPressed(ImageSource source,
       {BuildContext? context, bool isMultiImage = false}) async {
-    if (_controller != null) {
-      await _controller!.setVolume(0.0);
-    }
+    _uploadDone=false;
     if (isVideo) {
       final XFile? file = await _picker.pickVideo(
           source: source, maxDuration: const Duration(seconds: 10));
-      await _playVideo(file);
+      setState(() {
+        videoFile=file;
+      });
     } else if (isMultiImage) {
       await _displayPickImageDialog(context!,
               (double? maxWidth, double? maxHeight, int? quality) async {
@@ -105,29 +91,11 @@ class _UploadMediaState extends State<UploadMedia> {
   }
 
   @override
-  void deactivate() {
-    if (_controller != null) {
-      _controller!.setVolume(0.0);
-      _controller!.pause();
-    }
-    super.deactivate();
-  }
-
-  @override
   void dispose() {
-    _disposeVideoController();
     maxWidthController.dispose();
     maxHeightController.dispose();
     qualityController.dispose();
     super.dispose();
-  }
-
-  Future<void> _disposeVideoController() async {
-    if (_toBeDisposed != null) {
-      await _toBeDisposed!.dispose();
-    }
-    _toBeDisposed = _controller;
-    _controller = null;
   }
 
   Widget _previewVideo() {
@@ -135,7 +103,7 @@ class _UploadMediaState extends State<UploadMedia> {
     if (retrieveError != null) {
       return retrieveError;
     }
-    if (_controller == null) {
+    if (videoFile == null||videoFile?.path==null) {
       return const Text(
         'You have not yet picked a video',
         textAlign: TextAlign.center,
@@ -143,7 +111,7 @@ class _UploadMediaState extends State<UploadMedia> {
     }
     return Padding(
       padding: const EdgeInsets.all(10.0),
-      child: AspectRatioVideo(_controller),
+      child: DefaultPlayer(fromNetwork: false,file: File(videoFile!.path),),
     );
   }
 
@@ -196,9 +164,12 @@ class _UploadMediaState extends State<UploadMedia> {
       return;
     }
     if (response.file != null) {
+      _uploadDone=false;
       if (response.type == RetrieveType.video) {
         isVideo = true;
-        await _playVideo(response.file);
+        setState(() {
+          videoFile=response.file;
+        });
       } else {
         isVideo = false;
         setState(() {
@@ -211,43 +182,91 @@ class _UploadMediaState extends State<UploadMedia> {
     }
   }
 
+  void _uploadMedia()async{
+    if(_uploadDone)return;
+    var path=widget.mediaType==0?'images/${_imageFileList![0].name}':'videos/${videoFile!.name}';
+     setState(() {
+       _task=_firebaseStorageService.uploadFile(widget.mediaType==0?_imageFileList![0].path:videoFile!.path, path);
+     });
+    try {
+      TaskSnapshot snapshot = await _task!;
+     var url = await _firebaseStorageService.downloadURL(path);
+     var content=Content(type: widget.mediaType==0?ContentType.IMAGE:ContentType.VIDEO, uploadedBy: AuthService().currentUser!.uid, url: url);
+     await _fireStoreService.uploadContent(content);
+      _uploadDone=true;
+     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(widget.mediaType==0?"Image uploaded":"Video uploaded ")));
+    } on FirebaseException catch (e) {
+      print(_task!.snapshot);
+      if (e.code == 'permission-denied') {
+        print('User does not have permission to upload to this reference.');
+      }
+    }
+  }
+
+  Widget _uploadButton(){
+    if((videoFile!=null&&videoFile!.path!=null ||_imageFileList!=null && _imageFileList!.length>0 && _imageFileList![0].path!=null)&&_task!=null){
+      return StreamBuilder(builder: (context,AsyncSnapshot<TaskSnapshot> snap){
+        if(snap.hasData&& snap.data!=null){
+          return CircularPercentIndicator(
+            radius: 66.0,
+            lineWidth: 10.0,
+            percent: snap.data!.bytesTransferred/snap.data!.totalBytes,
+            center: FloatingActionButton(onPressed: _uploadMedia,key: Key("upload"),child: Icon(Icons.cloud_upload),backgroundColor: Colors.red,),
+            backgroundColor: Colors.grey,
+            progressColor: Colors.blue,
+          );
+        }else{
+          return FloatingActionButton(onPressed: _uploadMedia,key: Key("upload"),child: Icon(Icons.cloud_upload),backgroundColor: Colors.red,);
+        }
+      },stream: _task!.snapshotEvents,);
+    }else if((videoFile!=null&&videoFile!.path!=null ||_imageFileList!=null && _imageFileList!.length>0 && _imageFileList![0].path!=null)){
+      return FloatingActionButton(onPressed: _uploadMedia,key: Key("upload"),child: Icon(Icons.cloud_upload),backgroundColor: Colors.red,);
+    }
+    return SizedBox.shrink();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: Text("Upload Media"),),
       body: Center(
-        child: !kIsWeb && defaultTargetPlatform == TargetPlatform.android
-            ? FutureBuilder<void>(
-          future: retrieveLostData(),
-          builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
-            switch (snapshot.connectionState) {
-              case ConnectionState.none:
-              case ConnectionState.waiting:
-                return const Text(
-                  'You have not yet picked an image.',
-                  textAlign: TextAlign.center,
-                );
-              case ConnectionState.done:
-                return _handlePreview();
-              default:
-                if (snapshot.hasError) {
-                  return Text(
-                    'Pick image/video error: ${snapshot.error}}',
-                    textAlign: TextAlign.center,
-                  );
-                } else {
+        child: SizedBox(
+          height: 200,
+          child: !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+              ? FutureBuilder<void>(
+            future: retrieveLostData(),
+            builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
+              switch (snapshot.connectionState) {
+                case ConnectionState.none:
+                case ConnectionState.waiting:
                   return const Text(
-                    'You have not yet picked an image.',
+                    'You have not yet picked any media.',
                     textAlign: TextAlign.center,
                   );
-                }
-            }
-          },
-        )
-            : _handlePreview(),
+                case ConnectionState.done:
+                  return _handlePreview();
+                default:
+                  if (snapshot.hasError) {
+                    return Text(
+                      'Pick image/video error: ${snapshot.error}}',
+                      textAlign: TextAlign.center,
+                    );
+                  } else {
+                    return const Text(
+                      'You have not yet picked an image.',
+                      textAlign: TextAlign.center,
+                    );
+                  }
+              }
+            },
+          )
+              : _handlePreview(),
+        ),
       ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
+          _uploadButton(),
           if(widget.mediaType==0)
           Semantics(
             label: 'image_picker_example_from_gallery',

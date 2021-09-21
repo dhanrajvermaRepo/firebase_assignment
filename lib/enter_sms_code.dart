@@ -3,6 +3,7 @@ import 'package:firebase_assignment/modals/app_user.dart';
 import 'package:firebase_assignment/repository/firestore_services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class EnterSMSCode extends StatefulWidget {
   EnterSMSCode({required this.verificationId});
@@ -56,6 +57,10 @@ class _EnterSMSCodeState extends State<EnterSMSCode> {
             child: TextFormField(
               controller: _controller,
               autovalidateMode: AutovalidateMode.onUserInteraction,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9]'))
+              ],
+              maxLength: 6,
               decoration: InputDecoration(
                   border: OutlineInputBorder(), hintText: 'sms code',hintStyle: TextStyle(color: Colors.grey)),
               keyboardType: TextInputType.number,
@@ -68,6 +73,10 @@ class _EnterSMSCodeState extends State<EnterSMSCode> {
                 PhoneAuthCredential credential = PhoneAuthProvider.credential(
                     verificationId: widget.verificationId, smsCode: _controller.text);
                 // Sign the user in (or link) with the credential
+              try{
+                PhoneAuthCredential credential = PhoneAuthProvider.credential(
+                    verificationId: widget.verificationId, smsCode: _controller.text);
+                // Sign the user in (or link) with the credential
                 var creds=await _authService.signInWithCredential(credential);
                 if(creds.user!=null){
                   var user = KCUser(uid:creds.user!.uid, isAdmin: false);
@@ -75,6 +84,14 @@ class _EnterSMSCodeState extends State<EnterSMSCode> {
                 }
                 _removeOverLay();
                 Navigator.of(context).pop();
+              } catch(e){
+                if(e is FirebaseAuthException){
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${e.code}")));
+                }else{
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Wrong otp")));
+                }
+                _removeOverLay();
+              }
               },
               child: Text("Submit"))
         ],

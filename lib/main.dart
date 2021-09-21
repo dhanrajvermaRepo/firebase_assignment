@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 import 'auth_service.dart';
 import 'login_screen.dart';
@@ -36,6 +37,19 @@ class _AppState extends State<App> {
     try {
       // Wait for Firebase to initialize and set `_initialized` state to true
       await Firebase.initializeApp();
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        if(message.notification!=null){
+          Fluttertoast.showToast(
+              msg: message.notification!.body??"New notification",
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.TOP,
+              timeInSecForIosWeb: 1,
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
+              fontSize: 16.0
+          );
+        }
+      });
       setState(() {
         _initialized = true;
       });

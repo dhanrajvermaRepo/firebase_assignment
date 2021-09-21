@@ -1,6 +1,7 @@
 import 'package:firebase_assignment/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'enter_sms_code.dart';
 
@@ -10,7 +11,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _controller = TextEditingController(text: '+91');
+  final TextEditingController _controller = TextEditingController();
   final AuthService _authService = AuthService();
   OverlayEntry? _overlayEntry;
 
@@ -37,6 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void authenticationFailed(FirebaseAuthException e) {
+    removeOverLay();
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text('${e.code}')));
   }
@@ -62,11 +64,17 @@ class _LoginScreenState extends State<LoginScreen> {
           Padding(
             padding: const EdgeInsets.all(25.0),
             child: TextFormField(
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9]'))
+              ],
               controller: _controller,
+              maxLength: 10,
               autovalidateMode: AutovalidateMode.onUserInteraction,
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
+                prefixIcon: Text("+91",style: TextStyle(color: Colors.black,fontSize: 16),),
                   border: UnderlineInputBorder(),
+                  prefixIconConstraints: BoxConstraints(maxHeight: 20,maxWidth: 50),
                   errorBorder: UnderlineInputBorder(),
                   hintText: "Phone number"),
             ),
@@ -76,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 FocusScope.of(context).requestFocus(FocusNode());
                 _showOverLay();
                 await _authService.verifyPhoneNumber(
-                    _controller.text, authenticationFailed, codeSent);
+                    '+91${_controller.text}', authenticationFailed, codeSent);
               },
               child: Text('Sign-in'))
         ],
