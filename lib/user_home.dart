@@ -4,6 +4,7 @@ import 'package:firebase_assignment/modals/app_user.dart';
 import 'package:firebase_assignment/modals/content.dart';
 import 'package:firebase_assignment/repository/firestore_services.dart';
 import 'package:firebase_assignment/upload_media.dart';
+import 'package:firebase_assignment/upload_pdf.dart';
 import 'package:firebase_assignment/widgets/loading.dart';
 import 'package:firebase_assignment/widgets/video_thumbnail.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -32,6 +33,10 @@ class _UserHomeState extends State<UserHome>
   }
 
   void _handleUploadMedia() {
+    if(_tabController.index==2){
+      Navigator.of(context).push(MaterialPageRoute(builder: (_)=>UploadPdf()));
+      return;
+    }
     Navigator.of(context).push(MaterialPageRoute(builder: (context) {
       return UploadMedia(mediaType: _tabController.index);
     }));
@@ -153,7 +158,7 @@ class _UserHomeState extends State<UserHome>
         },
         stream: _fireStoreService.getContentInRealTime(),
       ),
-      floatingActionButton: _currentTap != 2 && widget.user.isAdmin
+      floatingActionButton: widget.user.isAdmin
           ? FloatingActionButton(
               onPressed: _handleUploadMedia,
               child: Icon(Icons.add),
